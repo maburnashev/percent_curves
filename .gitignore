@@ -1,0 +1,16 @@
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+.idea/
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Irrelevant files
+test.ipynb
+
+# Other
+.env
+
+
