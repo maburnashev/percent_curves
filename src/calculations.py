@@ -9,7 +9,28 @@ from src.extra_data import get_avg_dividends, get_g_curve
 
 
 force_future_is_spot_assets = ["RGBI", "RTS"]
-perpetual_futures = ['USDRUBF', 'EURRUBF', 'CNYRUBF', 'IMOEXF', 'RGBIF', 'GLDRUBF', 'SLVRUBF', 'SBERF', 'GAZPF', 'USDRUB_TOM', 'EURRUB_TOM', 'CNYRUB_TOM']
+perpetual_futures = ['USDRUBF', 'EURRUBF', 'CNYRUBF', 'IMOEXF', 'RGBIF', 'GLDRUBF', 'SLVRUBF', 'SBERF', 'GAZPF', 'USDRUB_TOM', 'EURRUB_TOM', 'CNYRUB_TOM', 'SP500F', 'QQQF']
+
+def get_future_price(futData):
+    future_price = np.where(
+        futData["ASSETCODE"] == "NASD",
+        futData["SETTLEPRICE"] / 41,
+        np.where(
+            futData["is_not_rub"] == 1,
+            futData["SETTLEPRICE"],
+            (futData["SETTLEPRICE"] * futData["STEPPRICE"]) / (futData["LOTVOLUME"] * futData["MINSTEP"])
+        )
+    )
+    return np.where(
+        futData["ASSETCODE"] == "MXI",
+        future_price / 10,
+        np.where(
+            futData["ASSETCODE"].isin(["MIX", "RGBI"]),
+            future_price / 100,
+            future_price
+        )
+    )
+
 
 def future_is_spot(futData):
     idxMinDays = futData.groupby("ASSETCODE")["DaysToExp"].idxmin()
@@ -58,6 +79,82 @@ def future_is_spot(futData):
         "discounted_div_size",
         "is_announced",
     ]]
+
+def perpetual_future_is_spot(futData):
+    futData = futData[futData["perpetual_is_spot"] == 1].copy()
+    result_columns = [
+        "TRADEDATE",
+        "ASSETCODE",
+        't',
+        'R',
+        "SETTLEPRICE",
+        "underlying_asset",
+        "SpotPrice",
+        "most_common_day",
+        "most_common_month",
+        "second_most_common_day",
+        "second_most_common_month",
+        "div_size",
+        "days_to_div",
+        "settlementprice_theory",
+        "is_div_implied",
+        "F",
+        "t1_div_rates",
+        "discounted_div_size",
+        "is_announced",
+    ]
+    if futData.empty:
+        for column in result_columns:
+            if column not in futData.columns:
+                futData[column] = np.nan
+        return futData[result_columns]
+
+    base_codes = futData["count_with"].dropna().unique()
+    spot_prices = (
+        futData[futData["ASSETCODE"].isin(base_codes)]
+        .sort_values(["ASSETCODE", "DaysToExp"])
+        .drop_duplicates(subset=["ASSETCODE"], keep="first")
+        .copy()
+    )
+    spot_prices["SpotPrice"] = get_future_price(spot_prices)
+    spot_prices = (
+        spot_prices[["ASSETCODE", "SECID", "DaysToExp", "SpotPrice"]]
+        .rename(columns={
+            "ASSETCODE": "count_with",
+            "SECID": "SpotCode",
+            "DaysToExp": "SpotDaysToExp",
+        })
+    )
+
+    futData = futData.merge(
+        spot_prices[["count_with", "SpotCode", "SpotPrice", "SpotDaysToExp"]],
+        on="count_with",
+        how="left",
+    )
+    futData["F"] = get_future_price(futData)
+    futData["t"] = np.where(
+        futData["ASSETCODE"] == futData["count_with"],
+        0,
+        futData["DaysToExp"],
+    )
+    futData["R"] = np.where(
+        (futData["t"] > 0) & (futData["F"] > 0) & (futData["SpotPrice"] > 0),
+        365 * np.log(futData["F"] / futData["SpotPrice"]) / futData["t"],
+        np.nan,
+    )
+    futData["is_announced"] = 0
+    futData["most_common_day"] = np.nan
+    futData["most_common_month"] = np.nan
+    futData["second_most_common_day"] = np.nan
+    futData["second_most_common_month"] = np.nan
+    futData["div_size"] = np.nan
+    futData["settlementprice_theory"] = np.nan
+    futData["is_div_implied"] = 0
+    futData["discounted_div_size"] = np.nan
+    futData["t1_div_rates"] = np.nan
+    futData["days_to_div"] = np.nan
+
+    return futData[result_columns]
 
 def asset_is_spot(futData, tradedate, asset_type: str, announced_dividends=None):
     trade_date = pd.to_datetime(tradedate)
@@ -159,11 +256,7 @@ def asset_is_spot(futData, tradedate, asset_type: str, announced_dividends=None)
     futData["t1_div_rates"] = np.nan
     futData["days_to_div"] = np.nan
 
-    futData["F"] = np.where(
-        (futData["is_not_rub"] == 1),
-        futData["SETTLEPRICE"],
-        (futData["SETTLEPRICE"] * futData["STEPPRICE"]) / (futData["LOTVOLUME"] * futData["MINSTEP"])
-    )
+    futData["F"] = get_future_price(futData)
     futData["SpotPrice"] = futData["spot_price"].copy()
     if asset_type == "stock":
         avg_dividends = get_avg_dividends().rename(columns={
@@ -395,16 +488,32 @@ def MakeCalculations(futData, mapped, tradedate, announced_dividends=None):
         left_on='ASSETCODE',
         right_on='assetcode'
     ).reset_index(drop=True)
+    if "perpetual_is_spot" not in tmp.columns:
+        tmp["perpetual_is_spot"] = 0
     tmp["_row_id"] = tmp.index
     types = tmp["asset_type"].unique()
     res = []
     for type in types:
         mask = (tmp["asset_type"] == type)
         type_data = tmp[mask].copy().reset_index(drop=True)
+        type_row_ids = type_data["_row_id"].copy()
+        perpetual_spot_mask = pd.to_numeric(type_data["perpetual_is_spot"], errors="coerce").fillna(0) == 1
+        pre_res_parts = []
+
+        if perpetual_spot_mask.any():
+            pre_res_parts.append(perpetual_future_is_spot(
+                type_data.loc[perpetual_spot_mask].copy().reset_index(drop=True)
+            ))
+
+        type_data = type_data.loc[~perpetual_spot_mask].copy().reset_index(drop=True)
+        if type_data.empty:
+            pre_res = pd.concat(pre_res_parts, ignore_index=True)
+            res.append(pre_res)
+            tmp = tmp[~tmp["_row_id"].isin(type_row_ids)]
+            continue
 
         if type in ["stock", "index"]:
             forced_future_mask = type_data["ASSETCODE"].isin(force_future_is_spot_assets)
-            pre_res_parts = []
 
             if (~forced_future_mask).any():
                 asset_spot_data = type_data.loc[~forced_future_mask].copy().reset_index(drop=True)
@@ -422,8 +531,11 @@ def MakeCalculations(futData, mapped, tradedate, announced_dividends=None):
             pre_res = pd.concat(pre_res_parts, ignore_index=True)
         else:
             pre_res = future_is_spot(type_data)
+            if pre_res_parts:
+                pre_res_parts.append(pre_res)
+                pre_res = pd.concat(pre_res_parts, ignore_index=True)
         res.append(pre_res)
-        tmp = tmp[~tmp["_row_id"].isin(type_data["_row_id"])]
+        tmp = tmp[~tmp["_row_id"].isin(type_row_ids)]
     df = pd.DataFrame(pd.concat(res, ignore_index=True))
     return df[[
         "TRADEDATE",

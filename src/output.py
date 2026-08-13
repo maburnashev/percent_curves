@@ -17,7 +17,7 @@ perpetual_rate_sources = {
     "CNYRUBF": "CNY",
     "CNYRUB_TOM": "CNY",
     "CNYRUBTOM": "CNY",
-    "IMOEXF": "IMOEX",
+    "IMOEX": "MXI",
     "RGBIF": "RGBI",
     "GLDRUBF": "GOLD",
     "GLDRUBTOM": "GOLD",
@@ -25,6 +25,8 @@ perpetual_rate_sources = {
     "SLVRUBTOM": "SILV",
     "SBERF": "SBRF",
     "GAZPF": "GAZR",
+    "QQQF": "NASD",
+    "SP500F": "SPYF"
 }
 
 def PlotRateCurve(standardTable, assetCode=None, savePath="futRateCurve.png", show=False):

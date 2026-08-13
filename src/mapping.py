@@ -5,7 +5,7 @@ from io import StringIO
 from urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
-perpetual_futures = ['USDRUBF', 'EURRUBF', 'CNYRUBF', 'IMOEXF', 'RGBIF', 'GLDRUBF', 'SLVRUBF', 'SBERF', 'GAZPF', 'USDRUB_TOM', 'EURRUB_TOM', 'CNYRUB_TOM']
+perpetual_futures = ['USDRUBF', 'EURRUBF', 'CNYRUBF', 'IMOEX', 'RGBIF', 'GLDRUBF', 'SLVRUBF', 'SBERF', 'GAZPF', 'USDRUB_TOM', 'EURRUB_TOM', 'CNYRUB_TOM', 'SP500F', 'QQQF']
 
 headers = {"User-Agent": "Mozilla/5.0"}
 group_to_type = {
@@ -94,18 +94,54 @@ def GetAssetType(date, mapped):
         on="assetcode",
         how="left",
     )
+    mapped["asset_type"] = np.where(
+        mapped["assetcode"].isin(["SPYF", "NASD"]),
+        "index",
+        mapped["asset_type"]
+    )
     mapped = mapped[['assetcode', 'underlying_asset', 'asset_type', 'STEPPRICE']]
 
     mapped['count_with'] = mapped['underlying_asset'].where(
         ~mapped['assetcode'].isin(perpetual_futures),
         mapped['assetcode'].str[:-1],
     ).fillna(mapped['assetcode'])
+
+    perpetual_spot_map = {
+        "IMOEX": "IMOEX",
+        "MXI": "IMOEX",
+        "MIX": "IMOEX",
+        "RGBI": "RGBIF",
+        "RGBIF": "RGBIF",
+        "Si": "USDRUBTOM",
+        "USDM": "USDRUBTOM",
+        "USDRUBTOM": "USDRUBTOM",
+        "Eu": "EURRUBTOM",
+        "EURM": "EURRUBTOM",
+        "EURRUBTOM": "EURRUBTOM",
+        "CNY": "CNYRUBTOM",
+        "CNYRUBTOM": "CNYRUBTOM",
+        "SPYF": "SP500F",
+        "SP500F": "SP500F",
+        "NASD": "QQQF",
+        "QQQF": "QQQF",
+    }
+    mapped["perpetual_is_spot"] = 0
+    perpetual_spot_mask = mapped["assetcode"].isin(perpetual_spot_map)
+    mapped.loc[perpetual_spot_mask, "count_with"] = mapped.loc[
+        perpetual_spot_mask,
+        "assetcode",
+    ].map(perpetual_spot_map)
+    mapped.loc[perpetual_spot_mask, "perpetual_is_spot"] = 1
+
     mapped["is_not_rub"] = np.where(
-        (~mapped["STEPPRICE"].isin([1., 10.])),
+        (
+            (~mapped["STEPPRICE"].isin([1., 10.]) & (mapped["asset_type"].isin(["stock", "index"]))
+            & (~mapped["assetcode"].isin(perpetual_spot_map.keys())))
+            | (mapped["assetcode"].isin(["SPYF", "SP500F", "NASD", "QQQF"]))),
         1,
         0
     )
-    mapped = mapped[["assetcode", "underlying_asset", "asset_type", "count_with", "is_not_rub"]]
+    mapped = mapped[["assetcode", "underlying_asset", "asset_type", "count_with", "is_not_rub", "perpetual_is_spot"]]
     mapped.to_csv(f'data_{date}/mapped_{date}.csv', index=False)
     return mapped
 
@@ -166,5 +202,4 @@ def MapSecurities(futDataPreRaw, tradedate):
         mapped["underlying_asset_code_new"]
     )
     mapped = mapped[['assetcode', 'short_asset_code', 'underlying_asset', 'STEPPRICE']]
-    # mapped.to_csv(f'data_{tradedate}/mapped_raw.csv', index=False)
     return GetAssetType(tradedate, mapped)
