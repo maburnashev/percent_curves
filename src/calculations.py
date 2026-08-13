@@ -61,7 +61,7 @@ def future_is_spot(futData):
 
 def asset_is_spot(futData, tradedate, asset_type: str, announced_dividends=None):
     trade_date = pd.to_datetime(tradedate)
-    column = "MARKETPRICE"
+    column = "LAST"
     base_url = f"https://iss.moex.com/iss/engines/stock/markets/shares/boards/TQBR/securities/"
     if asset_type == "index":
         base_url = f"https://iss.moex.com/iss/engines/stock/markets/index/securities/"

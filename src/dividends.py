@@ -421,4 +421,4 @@ def build():
         headless=args.headless,
         profile_dir=args.profile_dir,
     )
-    os.removedirs("src/cbonds_temp_download")
+    # os.removedirs("src/cbonds_temp_download")
