@@ -36,9 +36,12 @@ def GetFutData(date):
 
     futQuotesColumns = ["SECID", "SETTLEPRICE"]
     futParamsColumns = ["SECID", "SHORTNAME", "ASSETCODE", "LASTTRADEDATE", "LOTVOLUME", "STEPPRICE", "MINSTEP"]
+    # futQuotesColumns = ["SECID"]
+    # futParamsColumns = ["SECID", "SHORTNAME", "ASSETCODE", "LASTSETTLEPRICE", "LASTTRADEDATE", "LOTVOLUME", "STEPPRICE", "MINSTEP"]
 
     futQuotes = df1.reindex(columns=futQuotesColumns)
     futParams = df2.reindex(columns=futParamsColumns)
 
     futData = pd.merge(left=futParams, right=futQuotes, on="SECID", how="left")
+    # futData["SETTLEPRICE"] = futData["LASTSETTLEPRICE"]
     return futData

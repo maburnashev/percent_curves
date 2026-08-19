@@ -194,10 +194,14 @@ def asset_is_spot(futData, tradedate, asset_type: str, announced_dividends=None)
         params = {
             "date": tradedate,
         }
-        response = requests.get(url, params=params, timeout=30)
-        response.raise_for_status()
+        try:
+            response = requests.get(url, params=params, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+        except (requests.exceptions.RequestException, ValueError) as error:
+            print(f"Не удалось получить спот для {code}: {error}")
+            return np.nan
 
-        data = response.json()
         marketdata = pd.DataFrame(
             data["marketdata"]["data"],
             columns=data["marketdata"]["columns"],

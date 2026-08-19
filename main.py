@@ -26,7 +26,7 @@ def main():
     print(f"выполнен маппинг {date}")
 
     ### загрузка объявленных дивидендов
-    build()
+    # build()
     announced_dividends = pd.read_excel(f"data_{date}/df_dividends_announced.xlsx")
 
     ### расчет вмененных ставок
