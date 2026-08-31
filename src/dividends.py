@@ -244,6 +244,30 @@ def _normalize_columns(df):
     return df
 
 
+def _normalize_dividend_amount_and_currency(df):
+    """Достает валюту из поля Дивиденд, если Cbonds отдал сумму в формате '15,6 RUB'."""
+    df = df.copy()
+    if "Дивиденд" not in df.columns:
+        return df
+
+    if "Валюта" in df.columns:
+        return df
+
+    dividend_parts = df["Дивиденд"].astype("string").str.strip().str.rsplit(" ", n=1, expand=True)
+    if dividend_parts.shape[1] == 1:
+        df["Валюта"] = pd.NA
+        return df
+
+    dividend_amount = dividend_parts[0].str.replace(" ", "", regex=False).str.replace(",", ".", regex=False)
+    df["Дивиденд"] = pd.to_numeric(dividend_amount, errors="coerce")
+    df["Валюта"] = dividend_parts[1].str.strip()
+
+    dividend_column_index = df.columns.get_loc("Дивиденд")
+    columns = [column for column in df.columns if column != "Валюта"]
+    columns.insert(dividend_column_index + 1, "Валюта")
+    return df[columns]
+
+
 def _required_dividend_columns():
     """Возвращает список полей, которые должны быть в таблице дивидендов."""
     return [
@@ -252,6 +276,7 @@ def _required_dividend_columns():
         "Тикер",
         "Отрасль",
         "Дивиденд",
+        "Валюта",
         "Дивидендная доходность, %",
         "Последняя дата приобретения",
         "Экс-дивидендная дата",
@@ -309,6 +334,7 @@ def download_cbonds_dividends(
         df_dividends = _normalize_columns(df_dividends)
         if df_dividends.empty:
             raise ValueError("Не удалось получить таблицу дивидендного календаря Cbonds.")
+        df_dividends = _normalize_dividend_amount_and_currency(df_dividends)
         _validate_dividend_columns(df_dividends)
 
         return df_dividends

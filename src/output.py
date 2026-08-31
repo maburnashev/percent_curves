@@ -215,7 +215,7 @@ def Compare(trade_date):
     #
     other = df[['tradedate', 'assetcode', 'r']].copy()
     other['t'] = df['t'].apply(format_days).copy()
-    mine = pd.read_csv(f'data_{trade_date}/futRates_{trade_date}.csv')
+    mine = pd.read_excel(f'data_{trade_date}/futRates_{trade_date}.xlsx')
     mine = mine[['Date', 'BC', 'r', 'KEY_PERIOD']]
     mine.columns = ['tradedate', 'assetcode', 'r', 't']
     mine["tradedate"] = pd.to_datetime(mine["tradedate"], errors="coerce")
@@ -232,4 +232,4 @@ def Compare(trade_date):
         pd.Series(pd.to_numeric(compare["r_mine"] / compare["r_moex"] - 1)).map('{:.2%}'.format),
         np.nan
     )
-    return compare
+    return compare.sort_values(["tradedate", "assetcode"]).reset_index(drop=True)

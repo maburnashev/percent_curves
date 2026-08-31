@@ -34,6 +34,8 @@ def GetFutData(date):
     df2 = GetFutQuotes(date, meta="securities")
     df2.to_csv(f'data_{date}/description_{date}.csv', index=False)
 
+    # чтобы считать по РЦ предыдущего - раскомментировать закомментированное
+    # и закомментировать строки 39-40 (следующие 2)
     futQuotesColumns = ["SECID", "SETTLEPRICE"]
     futParamsColumns = ["SECID", "SHORTNAME", "ASSETCODE", "LASTTRADEDATE", "LOTVOLUME", "STEPPRICE", "MINSTEP"]
     # futQuotesColumns = ["SECID"]
