@@ -13,4 +13,6 @@ test.ipynb
 # Other
 .env
 data_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/
+dividends/RU000*
+dividends/RC_*
 
