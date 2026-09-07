@@ -6,6 +6,7 @@ requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
 from src.date_formatting import ConvertDates
 from src.extra_data import get_avg_dividends, get_g_curve
+from src.extra_data import sdfi_ruonia
 
 
 force_future_is_spot_assets = ["RGBI", "RTS"]
@@ -78,6 +79,8 @@ def future_is_spot(futData):
         "t1_div_rates",
         "discounted_div_size",
         "is_announced",
+        "asset_type",
+        "is_not_rub"
     ]]
 
 def perpetual_future_is_spot(futData):
@@ -102,6 +105,8 @@ def perpetual_future_is_spot(futData):
         "t1_div_rates",
         "discounted_div_size",
         "is_announced",
+        "asset_type",
+        "is_not_rub"
     ]
     if futData.empty:
         for column in result_columns:
@@ -159,10 +164,12 @@ def perpetual_future_is_spot(futData):
 def asset_is_spot(futData, tradedate, asset_type: str, announced_dividends=None):
     trade_date = pd.to_datetime(tradedate)
     column = "LAST"
+    # column = "LCLOSEPRICE"
     base_url = f"https://iss.moex.com/iss/engines/stock/markets/shares/boards/TQBR/securities/"
     if asset_type == "index":
         base_url = f"https://iss.moex.com/iss/engines/stock/markets/index/securities/"
         column = "LASTVALUE"
+        # column = "CURRENTVALUE "
 
     def get_nearest_g_curve_rates(days_to_exp):
         curve = get_g_curve(tradedate).copy()
@@ -297,8 +304,8 @@ def asset_is_spot(futData, tradedate, asset_type: str, announced_dividends=None)
             announced = announced_dividends.copy()
             announced["stock_code"] = announced["Тикер"].astype("string").str.split(",").str[0].str.strip()
             announced["announced_dividend_date"] = (
-                pd.to_datetime(announced["Экс-дивидендная дата"], errors="coerce")
-                .combine_first(pd.to_datetime(announced["Закрытие реестра"], errors="coerce"))
+                pd.to_datetime(announced["Экс-дивидендная дата"], format="%d.%m.%Y", errors="coerce")
+                .combine_first(pd.to_datetime(announced["Закрытие реестра"], format="%d.%m.%Y", errors="coerce"))
             )
             announced["announced_dividend"] = pd.to_numeric(announced["Дивиденд"], errors="coerce")
 
@@ -478,7 +485,30 @@ def asset_is_spot(futData, tradedate, asset_type: str, announced_dividends=None)
         "is_div_implied",
         "F",
         "t1_div_rates",
+        "asset_type",
+        "is_not_rub"
     ]]
+
+### логика с проверкой отклонения ставки от руонии
+def check_rate(futData):
+    ruon = sdfi_ruonia()[["days", "ruonia_year"]]
+    new_data = futData.merge(
+        ruon,
+        left_on="t",
+        right_on="days",
+        how="left"
+    )
+    mask = (
+            new_data["ruonia_year"].notna()
+            & new_data["R"].notna()
+            & (new_data["asset_type"] == "stock")
+            & (new_data["is_not_rub"] == 0)
+            & (abs(new_data["R"] - new_data["ruonia_year"]) * 100 > 10)
+    )
+
+    new_data.loc[mask, "R"] = new_data.loc[mask, "ruonia_year"]
+
+    return new_data
 
 def MakeCalculations(futData, mapped, tradedate, announced_dividends=None):
     # Делаем преобразования и расчеты
@@ -541,7 +571,8 @@ def MakeCalculations(futData, mapped, tradedate, announced_dividends=None):
         res.append(pre_res)
         tmp = tmp[~tmp["_row_id"].isin(type_row_ids)]
     df = pd.DataFrame(pd.concat(res, ignore_index=True))
-    return df[[
+    df_final = check_rate(df)
+    return df_final[[
         "TRADEDATE",
         "ASSETCODE",
         't',
@@ -561,4 +592,6 @@ def MakeCalculations(futData, mapped, tradedate, announced_dividends=None):
         "is_div_implied",
         "F",
         "t1_div_rates",
+        "asset_type",
+        "is_not_rub"
     ]]

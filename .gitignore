@@ -9,10 +9,9 @@ __pycache__/
 
 # Irrelevant files
 test.ipynb
+mapped_backup.csv
 
 # Other
 .env
 data_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/
-dividends/RU000*
-dividends/RC_*
 

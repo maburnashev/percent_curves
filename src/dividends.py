@@ -370,7 +370,7 @@ def build_cbonds_dividends(
     df_dividends.to_excel(output_path, index=False)
     print(f"Сохранено строк: {len(df_dividends)}")
     print(f"Файл: {output_path}")
-    return {"df_dividends": df_dividends}
+    return df_dividends
 
 
 def _parse_args():
@@ -422,7 +422,7 @@ def _resolve_cbonds_credentials(login_arg, password_arg, env_file):
     return cbonds_login, cbonds_password
 
 
-def build():
+def build(tradedate=None):
     """Запускает скачивание дивидендов с параметрами из командной строки."""
     args = _parse_args()
     cbonds_login, cbonds_password = _resolve_cbonds_credentials(
@@ -437,10 +437,11 @@ def build():
             "или передайте их через --login/--password."
         )
 
-    report_date = _format_cbonds_date(args.tradedate)
-    build_cbonds_dividends(
+    effective_tradedate = tradedate if tradedate is not None else args.tradedate
+    report_date = _format_cbonds_date(effective_tradedate)
+    return build_cbonds_dividends(
         report_date=report_date,
-        tradedate=args.tradedate,
+        tradedate=effective_tradedate,
         cbonds_login=cbonds_login,
         cbonds_password=cbonds_password,
         download_folder=args.download_folder,

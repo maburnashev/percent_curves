@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import shutil
 from datetime import datetime, timedelta
 
 from src.fut_data import GetFutData
@@ -10,7 +11,8 @@ from src.dividends import build
 
 
 def main():
-    date = datetime.now().date()
+    # date = datetime.now().date()
+    date = pd.to_datetime("2026-09-04").date()
     while date.weekday() >= 5:  # 5 — суббота, 6 — воскресенье
         date -= timedelta(days=1)
     print(f"Дата {date}")
@@ -26,8 +28,7 @@ def main():
     print(f"выполнен маппинг {date}")
 
     ### загрузка объявленных дивидендов
-    build()
-    announced_dividends = pd.read_excel(f"data_{date}/df_dividends_announced.xlsx")
+    announced_dividends = build(date)
 
     ### расчет вмененных ставок
     iFutData = MakeCalculations(futData, mapped, date, announced_dividends)
@@ -40,6 +41,7 @@ def main():
     ### работа с вечными фьючерсами
     standardTable = ApplyPerpetualRates(standardTable)
     standardTable.to_excel(f"data_{date}/futRates_{date}.xlsx", index=False)
+    standardTable.to_csv(f"data_{date}/futRates_{date}.csv", index=False)
     print(f"выполнены интерполяция и экстраполяция {date}")
 
     ### проверка
@@ -50,7 +52,7 @@ def main():
     ### визуализация
     # PlotRateCurve(standardTable, "BRM", f"pics/futDataStandardCurve_{date}.png", True)
     # print(f"выполнена визуализация {date}")
-    os.removedirs("src/cbonds_temp_download")
+    shutil.rmtree("src/cbonds_temp_download")
 
 if __name__ == "__main__":
     main()

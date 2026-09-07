@@ -6,6 +6,7 @@ from urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
 from src.date_formatting import format_days, period_to_days
+from src.extra_data import sdfi_ruonia_standart
 
 perpetual_rate_sources = {
     "USDRUBF": "Si",
@@ -141,6 +142,17 @@ def BuildTable(futData):
     res['KEY_PERIOD'] = table["t"].apply(format_days).astype(str)
     res["BC"] = table["assetcode"]
     res["r"] = table["r"]
+    ruon_std = sdfi_ruonia_standart()
+    res = res.merge(
+        ruon_std,
+        on="KEY_PERIOD",
+        how="left"
+    )
+    tmp = pd.read_csv("Astra_template.csv", sep=';')
+    for column in tmp.columns:
+        if column not in res.columns:
+            res[column] = np.nan
+    res = res[tmp.columns]
     return res.sort_values(["Date", "BC"]).reset_index(drop=True)
 
 def ApplyPerpetualRates(standardTable):
@@ -167,6 +179,13 @@ def ApplyPerpetualRates(standardTable):
 
     res = res[~res["BC"].isin(replacedCodes)]
     res = pd.DataFrame(pd.concat([res, *replacementRows], ignore_index=True))
+    res["r"] = np.where( # с фьючерсом на индекс волатильности так нельзя
+        res["BC"] == "RVI",
+        0,
+        res["r"]
+    )
+    res["r"] = res["r"].fillna(0)
+    res["R2_SPOT"] = res["R_SPOT"] - res["r"]
     return res.sort_values(["Date", "BC"]).reset_index(drop=True)
 
 def Compare(trade_date):
