@@ -194,7 +194,7 @@ def Compare(trade_date):
     params = {
         "date": trade_date,
     }
-    response = requests.get(url, params=params, timeout=20)
+    response = requests.get(url, params=params, timeout=20, verify=False)
     response.raise_for_status()
     rows = []
     start = 0
@@ -206,7 +206,7 @@ def Compare(trade_date):
         if trade_date is not None:
             params["date"] = trade_date
 
-        response = requests.get(url, params=params, timeout=30)
+        response = requests.get(url, params=params, timeout=30, verify=False)
         response.raise_for_status()
         load = response.json()
 

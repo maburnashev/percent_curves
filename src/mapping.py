@@ -150,7 +150,7 @@ def MapSecurities(futDataPreRaw, tradedate):
     params = {
         "date": tradedate,
     }
-    response = requests.get(url, params)
+    response = requests.get(url, params, verify=False)
     response.raise_for_status()
     data = response.json()
     ba = pd.DataFrame(data['series']['data'], columns=data['series']['columns'])

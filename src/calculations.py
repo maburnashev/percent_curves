@@ -202,7 +202,7 @@ def asset_is_spot(futData, tradedate, asset_type: str, announced_dividends=None)
             "date": tradedate,
         }
         try:
-            response = requests.get(url, params=params, timeout=30)
+            response = requests.get(url, params=params, timeout=30, verify=False)
             response.raise_for_status()
             data = response.json()
         except (requests.exceptions.RequestException, ValueError) as error:
