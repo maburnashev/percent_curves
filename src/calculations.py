@@ -269,6 +269,7 @@ def asset_is_spot(futData, tradedate, asset_type: str, announced_dividends=None)
 
     futData["F"] = get_future_price(futData)
     futData["SpotPrice"] = futData["spot_price"].copy()
+    ### Допущение №3
     if asset_type == "stock":
         avg_dividends = get_avg_dividends().rename(columns={
             "Тикер": "stock_code",
@@ -489,15 +490,31 @@ def asset_is_spot(futData, tradedate, asset_type: str, announced_dividends=None)
         "is_not_rub"
     ]]
 
+### Допущение №2
 ### логика с проверкой отклонения ставки от руонии
 def check_rate(futData):
-    ruon = sdfi_ruonia()[["days", "ruonia_year"]]
-    new_data = futData.merge(
-        ruon,
-        left_on="t",
-        right_on="days",
-        how="left"
+    new_data = futData.copy()
+    ruon = sdfi_ruonia()[["days", "ruonia_year"]].copy()
+    ruon["days"] = pd.to_numeric(ruon["days"], errors="coerce")
+    ruon["ruonia_year"] = pd.to_numeric(ruon["ruonia_year"], errors="coerce")
+    ruon = (
+        ruon
+        .dropna(subset=["days", "ruonia_year"])
+        .drop_duplicates(subset=["days"], keep="last")
+        .sort_values("days")
     )
+
+    new_data["t"] = pd.to_numeric(new_data["t"], errors="coerce")
+    if ruon.empty:
+        new_data["ruonia_year"] = np.nan
+    else:
+        new_data["ruonia_year"] = np.interp(
+            new_data["t"],
+            ruon["days"],
+            ruon["ruonia_year"],
+            left=np.nan,
+            right=np.nan,
+        )
     mask = (
             new_data["ruonia_year"].notna()
             & new_data["R"].notna()

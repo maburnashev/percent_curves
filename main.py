@@ -11,8 +11,8 @@ from src.dividends import build
 
 
 def main():
-    # date = datetime.now().date()
-    date = pd.to_datetime("2026-09-04").date()
+    date = datetime.now().date()
+    # date = pd.to_datetime("2026-09-04").date()
     while date.weekday() >= 5:  # 5 — суббота, 6 — воскресенье
         date -= timedelta(days=1)
     print(f"Дата {date}")

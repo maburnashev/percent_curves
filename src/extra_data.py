@@ -27,6 +27,7 @@ def get_historical_dividends():
         pass
     return df
 
+### раскомментировать 4 строки и закомментироватьь with open(...) ...
 def sdfi_ruonia():
     # url = "https://iss.moex.com/iss/sdfi/curves/RUB-DFA-CSARUB.json"
     # response = requests.get(url)

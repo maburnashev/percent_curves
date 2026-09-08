@@ -184,6 +184,7 @@ def ApplyPerpetualRates(standardTable):
         0,
         res["r"]
     )
+    ### допущение №1
     res["r"] = res["r"].fillna(0)
     res["R2_SPOT"] = res["R_SPOT"] - res["r"]
     return res.sort_values(["Date", "BC"]).reset_index(drop=True)
