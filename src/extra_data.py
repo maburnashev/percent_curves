@@ -29,12 +29,12 @@ def get_historical_dividends():
 
 ### раскомментировать 4 строки и закомментироватьь with open(...) ...
 def sdfi_ruonia():
-    # url = "https://iss.moex.com/iss/sdfi/curves/RUB-DFA-CSARUB.json"
-    # response = requests.get(url)
-    # response.raise_for_status()
-    # data = response.json()
-    with open('data.json') as f:
-        data = json.load(f)
+    url = "https://iss.moex.com/iss/sdfi/curves/RUB-DFA-CSARUB.json"
+    response = requests.get(url)
+    response.raise_for_status()
+    data = response.json()
+    # with open('data.json') as f:
+    #     data = json.load(f)
 
     df = pd.DataFrame(
         data=data['curves']['data'],
