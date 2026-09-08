@@ -1,0 +1,9 @@
+numpy
+pandas
+requests
+urllib3
+matplotlib
+python-dotenv
+selenium
+openpyxl
+lxml
