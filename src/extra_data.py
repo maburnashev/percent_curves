@@ -29,7 +29,7 @@ def get_historical_dividends():
 
 ### раскомментировать 4 строки и закомментироватьь with open(...) ...
 def sdfi_ruonia():
-    url = "https://iss.moex.com/iss/sdfi/curves/RUB-DFA-CSARUB.json"
+    url = "https://iss.moex.com/iss/sdfi/curves/RUB-DFA-CSARUB.`json`"
     response = requests.get(url, verify=False)
     response.raise_for_status()
     data = response.json()
@@ -43,8 +43,7 @@ def sdfi_ruonia():
     max_time = max(df["calctime"])
     df = pd.DataFrame(df[(df["calctime"] == max_time)])
     df["days"] = pd.to_numeric(df["tenor"].str.rstrip("D"))
-    df["rate"] = 1 / df["value"] - 1
-    df["ruonia_year"] = (1 + df["rate"]) ** (365 / df["days"]) - 1
+    df["ruonia_year"] = -np.log(df["value"]) / df["days"] * 365
     return df.sort_values(["days"])
 
 def sdfi_ruonia_standart():

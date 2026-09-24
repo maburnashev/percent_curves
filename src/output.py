@@ -27,8 +27,69 @@ perpetual_rate_sources = {
     "SBERF": "SBRF",
     "GAZPF": "GAZR",
     "QQQF": "NASD",
-    "SP500F": "SPYF"
+    "SP500F": "SPYF",
+    'BTCUSDF': "BTC",
+    'ETHUSDF': "ETH",
+    'SOLUSDF': "SOL",
+    'TRXUSDF': "TRX",
+    'XRPUSDF': "XRP"
 }
+
+perpetual_spot_map = {
+    "IMOEX": "IMOEX",
+    "MXI": "IMOEX",
+    "MIX": "IMOEX",
+    "RGBI": "RGBIF",
+    "RGBIF": "RGBIF",
+    "Si": "USDRUBTOM",
+    "USDM": "USDRUBTOM",
+    "USDRUBTOM": "USDRUBTOM",
+    "Eu": "EURRUBTOM",
+    "EURM": "EURRUBTOM",
+    "EURRUBTOM": "EURRUBTOM",
+    "CNY": "CNYRUBTOM",
+    "CNYRUBTOM": "CNYRUBTOM",
+    "SPYF": "SP500F",
+    "SP500F": "SP500F",
+    "NASD": "QQQF",
+    "QQQF": "QQQF",
+    "BTC": 'BTCUSDF',
+    "ETH": 'ETHUSDF',
+    "SOL": 'SOLUSDF',
+    "TRX": 'TRXUSDF',
+    "XRP": 'XRPUSDF'
+}
+
+force_future_is_spot_assets = ["RGBI", "RTS"]
+perpetual_futures = ['USDRUBF', 'EURRUBF', 'CNYRUBF', 'IMOEXF', 'RGBIF', 'GLDRUBF', 'SLVRUBF', 'SBERF', 'GAZPF', 'USDRUB_TOM', 'EURRUB_TOM', 'CNYRUB_TOM', 'SP500F', 'QQQF',
+                     'BTCUSDF', 'ETHUSDF', 'SOLUSDF', 'TRXUSDF',]
+
+def UpdatePerpetual(futDataPreRaw):
+    perpetual_update = futDataPreRaw[
+        futDataPreRaw["ASSETCODE"].astype("string").str.contains(r"(?:RUBF|USDF)$", na=False)
+    ].copy()
+
+    perpetual_update[["rate_source", "suffix"]] = (
+        perpetual_update["ASSETCODE"]
+        .astype("string")
+        .str.extract(r"^(.+?)(RUBF|USDF)$")
+    )
+
+    perpetual_update = perpetual_update.dropna(subset=["rate_source"])
+
+    for _, row in perpetual_update.iterrows():
+        assetcode = row["ASSETCODE"]  # например BTCUSDF
+        rate_source = row["rate_source"]  # например BTC
+
+        perpetual_rate_sources.setdefault(assetcode, rate_source)
+        perpetual_spot_map.setdefault(rate_source, assetcode)
+        perpetual_spot_map.setdefault(assetcode, assetcode)
+
+        if assetcode not in perpetual_futures:
+            perpetual_futures.append(assetcode)
+
+
+    return perpetual_update
 
 def PlotRateCurve(standardTable, assetCode=None, savePath="futRateCurve.png", show=False):
     requiredColumns = {"Date", "BC", "KEY_PERIOD", "r"}
@@ -187,6 +248,9 @@ def ApplyPerpetualRates(standardTable):
     ### допущение №1
     res["r"] = res["r"].fillna(0)
     res["R2_SPOT"] = res["R_SPOT"] - res["r"]
+    res["r"] = np.round(res["r"], 6)
+    res["R2_SPOT"] = np.round(res["R2_SPOT"], 6)
+    res["R_SPOT"] = np.round(res["R_SPOT"], 6)
     return res.sort_values(["Date", "BC"]).reset_index(drop=True)
 
 def Compare(trade_date):

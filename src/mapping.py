@@ -3,10 +3,11 @@ import numpy as np
 import requests
 from io import StringIO
 from urllib3.exceptions import InsecureRequestWarning
+
+from src.output import perpetual_futures, perpetual_spot_map, UpdatePerpetual
+
+
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
-
-perpetual_futures = ['USDRUBF', 'EURRUBF', 'CNYRUBF', 'IMOEX', 'RGBIF', 'GLDRUBF', 'SLVRUBF', 'SBERF', 'GAZPF', 'USDRUB_TOM', 'EURRUB_TOM', 'CNYRUB_TOM', 'SP500F', 'QQQF']
-
 headers = {"User-Agent": "Mozilla/5.0"}
 group_to_type = {
     "Indices": "index",
@@ -28,6 +29,7 @@ def GetAssetType(date, mapped):
         "https://www.moex.com/s1085",
         headers=headers,
         timeout=30,
+        verify=False
     ).text
 
     code_table = pd.read_html(StringIO(html))[5]
@@ -52,6 +54,7 @@ def GetAssetType(date, mapped):
         "https://www.moex.com/en/derivatives/select.aspx",
         headers=headers,
         timeout=30,
+        verify=False
     ).text
 
     select_table = pd.read_html(StringIO(html))[0]
@@ -106,25 +109,6 @@ def GetAssetType(date, mapped):
         mapped['assetcode'].str[:-1],
     ).fillna(mapped['assetcode'])
 
-    perpetual_spot_map = {
-        "IMOEX": "IMOEX",
-        "MXI": "IMOEX",
-        "MIX": "IMOEX",
-        "RGBI": "RGBIF",
-        "RGBIF": "RGBIF",
-        "Si": "USDRUBTOM",
-        "USDM": "USDRUBTOM",
-        "USDRUBTOM": "USDRUBTOM",
-        "Eu": "EURRUBTOM",
-        "EURM": "EURRUBTOM",
-        "EURRUBTOM": "EURRUBTOM",
-        "CNY": "CNYRUBTOM",
-        "CNYRUBTOM": "CNYRUBTOM",
-        "SPYF": "SP500F",
-        "SP500F": "SP500F",
-        "NASD": "QQQF",
-        "QQQF": "QQQF",
-    }
     mapped["perpetual_is_spot"] = 0
     perpetual_spot_mask = mapped["assetcode"].isin(perpetual_spot_map)
     mapped.loc[perpetual_spot_mask, "count_with"] = mapped.loc[
@@ -133,19 +117,33 @@ def GetAssetType(date, mapped):
     ].map(perpetual_spot_map)
     mapped.loc[perpetual_spot_mask, "perpetual_is_spot"] = 1
 
+    assetcode = mapped["assetcode"].astype("string")
+    count_with = mapped["count_with"].astype("string")
+
+    usdf_mask = (
+            assetcode.str.contains("USDF", na=False)
+            | count_with.str.contains("USDF", na=False)
+    )
+
+    force_not_rub_mask = assetcode.isin(["SPYF", "SP500F", "NASD", "QQQF"])
+
+    default_not_rub_mask = (
+            ~mapped["STEPPRICE"].isin([1.0, 10.0])
+            & mapped["asset_type"].isin(["stock", "index"])
+            & ~assetcode.isin(perpetual_spot_map.keys())
+    )
+
     mapped["is_not_rub"] = np.where(
-        (
-            (~mapped["STEPPRICE"].isin([1., 10.]) & (mapped["asset_type"].isin(["stock", "index"]))
-            & (~mapped["assetcode"].isin(perpetual_spot_map.keys())))
-            | (mapped["assetcode"].isin(["SPYF", "SP500F", "NASD", "QQQF"]))),
+        usdf_mask | force_not_rub_mask | default_not_rub_mask,
         1,
-        0
+        0,
     )
     mapped = mapped[["assetcode", "underlying_asset", "asset_type", "count_with", "is_not_rub", "perpetual_is_spot"]]
     mapped.to_csv(f'data_{date}/mapped_{date}.csv', index=False)
     return mapped
 
 def MapSecurities(futDataPreRaw, tradedate):
+    UpdatePerpetual(futDataPreRaw)
     url = 'https://iss.moex.com//iss/statistics/engines/futures/markets/forts/series.json'
     params = {
         "date": tradedate,
@@ -179,6 +177,7 @@ def MapSecurities(futDataPreRaw, tradedate):
         "https://www.moex.com/s1085",
         headers=headers,
         timeout=30,
+        verify=False
     ).text
 
     code_table = pd.read_html(StringIO(html))[5]

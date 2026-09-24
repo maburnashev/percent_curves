@@ -7,10 +7,9 @@ requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 from src.date_formatting import ConvertDates
 from src.extra_data import get_avg_dividends, get_g_curve
 from src.extra_data import sdfi_ruonia
+from src.output import force_future_is_spot_assets, perpetual_futures
 
 
-force_future_is_spot_assets = ["RGBI", "RTS"]
-perpetual_futures = ['USDRUBF', 'EURRUBF', 'CNYRUBF', 'IMOEXF', 'RGBIF', 'GLDRUBF', 'SLVRUBF', 'SBERF', 'GAZPF', 'USDRUB_TOM', 'EURRUB_TOM', 'CNYRUB_TOM', 'SP500F', 'QQQF']
 
 def get_future_price(futData):
     future_price = np.where(
